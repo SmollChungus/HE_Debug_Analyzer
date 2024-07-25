@@ -70,30 +70,44 @@ def parse_data(filename):
     return pd.DataFrame(data)
 
 def plot_data(df_original, df_filtered):
-    # Create a figure with two subplots
-    fig, axes = plt.subplots(2, 1, figsize=(14, 10), sharex=True)
+    # Set up the figure size and resolution
+    plt.figure(figsize=(14, 7), dpi=100)
 
-    # Plot original data
-    axes[0].plot(df_original.index, df_original['sensor'], color='b', label='MA-Filtered', linewidth=2)
-    axes[0].set_ylabel('Sensor Value')
-    axes[0].grid(True)
-    axes[0].legend()
+    # Iterate over the DataFrame to change color based on debounced state and add transition lines
+    previous_state = df_original['debounced_state'][0]
+    start_index = 0
 
-    # Plot filtered data
-    axes[1].plot(df_filtered.index, df_filtered['filtered_sensor'], color='r', label='Kalman Filtered', linewidth=2)
-    axes[1].set_xlabel('Sample Number')
-    axes[1].set_ylabel('Sensor Value')
-    axes[1].grid(True)
-    axes[1].legend()
+    for i in range(1, len(df_original)):
+        current_state = df_original['debounced_state'][i]
+        if current_state != previous_state:
+            color = 'g' if previous_state == 0 else 'r'
+            plt.plot(df_original.index[start_index:i], df_original['sensor'][start_index:i], color=color, linewidth=2)
+            plt.plot(df_original.index[i-1:i+1], df_original['sensor'][i-1:i+1], color='y', linewidth=2, label='Debounce Transition' if 'Debounce Transition' not in plt.gca().get_legend_handles_labels()[1] else "")  # Yellow transition line
+            start_index = i
+            previous_state = current_state
 
-    # Add titles
-    axes[0].set_title('raw')
-    axes[1].set_title('Kalman Filter')
+    # Ensure the last segment is also plotted
+    color = 'g' if df_original['debounced_state'].iloc[-1] == 0 else 'r'
+    plt.plot(df_original.index[start_index:], df_original['sensor'][start_index:], color=color, linewidth=2)
 
-    # Show the plot
-    plt.tight_layout()
+    # Add a horizontal dotted line for the boundary value
+    if not df_original['boundary'].empty:
+        boundary_value = df_original['boundary'].iloc[0]  # Assuming the boundary value is the same for all samples
+        plt.axhline(y=boundary_value, color='k', linestyle='--', linewidth=1, label='Deadzone')
+
+    # Adding titles and labels
+    plt.title('Sensor Readings Over Time')
+    plt.xlabel('Sample Number')
+    plt.ylabel('Sensor Value')
+
+    # Show grid
+    plt.grid(True)
+
+    # Show the legend
+    plt.legend()
+
+    # Display the plot
     plt.show()
-
 
 
 def main():
